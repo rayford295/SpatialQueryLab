@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Campus Safety Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/esri-leaflet@3.0.11/dist/esri-leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <style>
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    html, body, #map { height: 100%; }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+      width: 300px;
+    }
+    #info h2 { margin-top: 0; }
+    .legend {
+      background: white;
+      line-height: 1.5em;
+      padding: 6px 10px;
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      z-index: 1000;
+      font-size: 14px;
+      border-radius: 5px;
+      box-shadow: 0 0 5px #999;
+    }
+    #example-img {
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <h2>GEOG 478 Campus Safety Map</h2>
+    <p><strong>Team Members:</strong> Bryan Blackmon, Luke Wilkins, Daniel Bort, Yifan Yang</p>
+
+    <h3>Project Background</h3>
+    <p>This project was developed as part of the GEOG 478 Web GIS course at Texas A&M University. Our objective is to enhance campus safety awareness by visualizing critical safety features, via a heatmap, through an interactive web map.</p>
+
+    <h3>Why These Features?</h3>
+    <ul>
+      <li><strong>Emergency Call Boxes:</strong> Indicate accessible emergency help points.</li>
+      <li><strong>Security Cameras:</strong> Show monitored areas for increased security presence.</li>
+      <li><strong>High-Traffic Pedestrian Routes:</strong> Help identify safe and busy paths through campus.</li>
+      <li><strong>Poorly Lit Areas:</strong> Help identify areas needing better lighting to reduce risks.</li>
+    </ul>
+  </div>
+
+  <div class="legend" id="legend">
+    <strong>Legend</strong><br>
+    <img src="https://cdn-icons-png.flaticon.com/512/212/212298.png" width="20"> Emergency Call Boxes<br>
+    <img src="https://cdn-icons-png.flaticon.com/512/1039/1039532.png" width="20"> Security Cameras<br>
+    <img src="https://cdn-icons-png.flaticon.com/512/854/854894.png" width="20"> Pedestrian Routes<br>
+    <img src="https://cdn-icons-png.flaticon.com/512/6812/6812339.png" width="20"> Poorly Lit Areas<br>
+    <img src="https://cdn-icons-png.flaticon.com/512/6868/6868953.png" width="20"> HeatMap: Green = Safe Areas, Red = Unsafe Areas
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    var map = L.map('map', {
+        zoomControl: false
+    }).fitWorld();
+    
+    // Move zoom control from topright deafult to bottomleft
+    L.control.zoom({
+        position: 'bottomright'
+    }).addTo(map);
+
+    function styleLayer(url, icon, color) {
+      return L.esri.featureLayer({
+        url: url,
+        pointToLayer: function (geoJsonPoint, latlng) {
+          return L.marker(latlng, { icon: icon });
+        },
+        style: function () {
+          return { color: color };
+        },
+        onEachFeature: function (feature, layer) {
+          var popup = '';
+          if (feature.properties) {
+            for (var key in feature.properties) {
+              popup += '<strong>' + key + ':</strong> ' + feature.properties[key] + '<br>';
+            }
+          }
+          layer.bindPopup(popup);
+        }
+      });
+    }
+
+    var icons = {
+      emergency: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/212/212298.png', iconSize: [25, 25] }),
+      camera: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1039/1039532.png', iconSize: [25, 25] }),
+      pedestrian: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854894.png', iconSize: [25, 25] }),
+      lighting: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/6812/6812339.png', iconSize: [25, 25] })
+    };
+
+    var emergencyLayer = styleLayer('https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/Campus_Safety_Layer/FeatureServer/0', icons.emergency, 'red');
+    var cameraLayer = styleLayer('https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/Campus_Safety_Layer/FeatureServer/2', icons.camera, 'blue');
+    var pedestrianLayer = styleLayer('https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/Campus_Safety_Layer/FeatureServer/3', icons.pedestrian, 'green');
+    var lightingLayer = styleLayer('https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/Campus_Safety_Layer/FeatureServer/1', icons.lighting, 'orange');
+
+    // Add security camera layer to map (largest extent layer)
+    cameraLayer.addTo(map);
+
+    // Query the bounding box directly from the server and zoom
+    cameraLayer.query().bounds(function(error, latlngbounds) {
+    if (!error) {
+        map.fitBounds(latlngbounds);
+    } else {
+        console.error("Error fetching layer bounds:", error);
+    }
+    });
+
+    emergencyLayer.addTo(map);
+    lightingLayer.addTo(map);
+    pedestrianLayer.addTo(map);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    L.Control.geocoder({ defaultMarkGeocode: false })
+      .on('markgeocode', function(e) {
+        map.setView(e.geocode.center, 17);
+        L.marker(e.geocode.center).addTo(map).bindPopup(e.geocode.name).openPopup();
+      })
+      .addTo(map);
+
+    var heatPoints = [];
+
+    // Emergency Call Boxes weight = 0.9
+    emergencyLayer.on('load', function() {
+      emergencyLayer.eachFeature(function(layer) {
+          heatPoints.push([layer.getLatLng().lat, layer.getLatLng().lng, 0.9]);
+      });
+    });
+
+    // Security Cameras weight = 0.7
+    cameraLayer.on('load', function() {
+      cameraLayer.eachFeature(function(layer) {
+          heatPoints.push([layer.getLatLng().lat, layer.getLatLng().lng, 0.7]);
+      });
+    });
+
+    // Pedestrian Routes weight = 0.5
+    pedestrianLayer.on('load', function() {
+      pedestrianLayer.eachFeature(function(layer) {
+          var coords = layer.feature.geometry.coordinates;
+          for (var i = 0; i < coords.length; i += 5) {
+          var coord = coords[i];
+          var lat = coord[1];
+          var lng = coord[0];
+          heatPoints.push([lat, lng, 0.5]);
+          }
+      });
+    });
+
+    // // Poorly Lit Areas weight = 0.2
+    // lightingLayer.on('load', function() {
+    //   lightingLayer.eachFeature(function(layer) {
+    //       var bounds = layer.getBounds();
+    //       var center = bounds.getCenter();
+    //       heatPoints.push([center.lat, center.lng, 0.2]);
+    //   });
+    // });
+
+    var heat;
+
+    setTimeout(function() {
+    heat = L.heatLayer(heatPoints, {
+        radius: 45,
+        blur: 35,
+        maxZoom: 20,
+        minOpacity: 0.4,
+        gradient: {
+        0.2: 'red',
+        0.4: 'orange',
+        0.6: 'yellow',
+        0.8: 'lime'
+        }
+    }).addTo(map);
+
+    L.control.layers(null, {
+      "Emergency Call Boxes": emergencyLayer,
+      "Security Cameras": cameraLayer,
+      "High-Traffic Pedestrian Routes": pedestrianLayer,
+      "Poorly Lit Areas": lightingLayer,
+      "Heatmap (Safety Intensity)": heat
+    }, { collapsed: false }).addTo(map);
+
+    }, 2000);
+
+  </script>
+</body>
+</html>
