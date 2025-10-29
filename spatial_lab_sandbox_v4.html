@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spatial Query Lab – v4 (SQL + ArcGIS)</title>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial; }
+    .container { display: grid; grid-template-columns: 470px 1fr; height: 100%; }
+    .sidebar { padding: 14px; border-right: 1px solid #eee; overflow-y: auto; }
+    h2 { margin: 8px 0 10px; }
+    .card { border: 1px solid #eee; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    label { font-size: 12px; color: #444; }
+    input[type=text], input[type=number], textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
+    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; min-height: 120px; }
+    .btn { padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; cursor: pointer; }
+    .btn:hover { background: #f0f0f0; }
+    .muted { color: #666; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid #eee; padding: 6px; text-align: left; }
+    #map { width: 100%; height: 100%; }
+    .badge { display: inline-block; font-size: 10px; padding: 2px 6px; border: 1px solid #ddd; border-radius: 6px; margin-left: 6px; color: #444; }
+    .hint { background: #f8f9fb; border: 1px dashed #d0d7de; padding: 8px; border-radius: 8px; }
+    .flex { display:flex; gap:8px; align-items:center; }
+    .flex > * { flex: 1; }
+    .danger { color:#b00020; }
+    .ok { color:#1b5e20; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; background:#f5f5f5; border:1px solid #e0e0e0; }
+    .monoinput { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="sidebar">
+    <h2>Spatial Query Lab <span class="badge">v4</span></h2>
+    <p class="muted">Choose one: ① Load real data from ArcGIS FeatureServer; ② Connect Supabase to run SQL and visualize.</p>
+
+    <div class="card">
+      <h3>1) ArcGIS FeatureServer (real data)</h3>
+      <div class="row">
+        <label>Feature Layer URL (layer 0 by default)
+          <input id="arcgis-url" class="monoinput" type="text" value="https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/Campus_Safety_Layer/FeatureServer/0">
+        </label>
+        <div class="flex">
+          <button class="btn" id="btn-load-arcgis">Load ArcGIS Layer</button>
+          <button class="btn" id="btn-clear-arcgis">Clear</button>
+        </div>
+        <div class="muted">We fetch <span class="pill">GeoJSON</span> via <code>.../query?where=1=1&outFields=*&f=geojson</code> and paint as blue circles.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>2) Supabase (SQL Runner)</h3>
+      <div class="row">
+        <label>Supabase Project URL
+          <input id="sb-url" type="text" placeholder="https://xxxxx.supabase.co">
+        </label>
+        <label>Supabase anon public key
+          <input id="sb-key" type="text" placeholder="eyJhbGciOiJI...">
+        </label>
+        <div class="flex">
+          <button class="btn" id="btn-connect">Connect Supabase</button>
+          <span id="conn-status" class="muted">Not connected</span>
+        </div>
+        <div class="hint">
+          <div><b>Server setup (once):</b> run <code>spatial_sql_sqlrunner.sql</code> to create <code>run_student_sql(sql text)</code> (read-only, whitelisted, LIMIT 1000).</div>
+          <div class="muted">Students can type SQL below. Use variables <code>{{lon}}</code> and <code>{{lat}}</code> which will be replaced by the clicked map point.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>3) SQL Editor (Supabase)</h3>
+      <div class="row">
+        <div class="muted">Click on the map to set <b>lon/lat</b>. Then write a SELECT. If your result has a column named <code>geom</code> containing <span class="pill">GeoJSON</span>, it will be drawn on the map.</div>
+        <textarea id="sql">
+-- Example 1: nearest 20 safety features to clicked point
+select id, name, type,
+       st_distance(geom::geography, st_setsrid(st_point({{lon}}, {{lat}}),4326)::geography) as dist_m,
+       st_asgeojson(geom)::jsonb as geom
+from campus_safety
+order by geom <-> st_setsrid(st_point({{lon}}, {{lat}}),4326)
+limit 20;
+
+-- Example 2: within 300 m buffer
+-- select id, name, type,
+--        st_distance(geom::geography, st_setsrid(st_point({{lon}}, {{lat}}),4326)::geography) as dist_m,
+--        st_asgeojson(geom)::jsonb as geom
+-- from campus_safety
+-- where st_dwithin(geom::geography, st_setsrid(st_point({{lon}}, {{lat}}),4326)::geography, 300)
+-- order by dist_m;
+        </textarea>
+        <div class="flex">
+          <button class="btn" id="btn-run-sql">Run SQL</button>
+          <button class="btn" id="btn-clear-sql">Clear Results</button>
+        </div>
+        <div id="sql-status" class="muted">Ready.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>4) Results <span id="res-count" class="badge">0</span></h3>
+      <div id="status" class="muted">Click on the map to set a query point.</div>
+      <div style="max-height: 260px; overflow: auto; margin-top: 8px;">
+        <table id="result-table">
+          <thead><tr><th>Name</th><th>Type</th><th>Dist (m)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    center: [-96.341, 30.6188],
+    zoom: 14.2
+  })
+  map.addControl(new maplibregl.NavigationControl(), 'top-right')
+
+  // sources & layers
+  function emptyFC(){ return { type:'FeatureCollection', features: [] } }
+  map.on('load', () => {
+    map.addSource('click-point', { type:'geojson', data: emptyFC() })
+    map.addLayer({ id:'click-point', type:'circle', source:'click-point', paint:{'circle-radius':6,'circle-color':'#000'}})
+
+    map.addSource('arcgis-layer', { type:'geojson', data: emptyFC() })
+    map.addLayer({ id:'arcgis-layer', type:'circle', source:'arcgis-layer',
+      paint:{'circle-radius':4,'circle-color':'#1565c0','circle-stroke-width':1,'circle-stroke-color':'#000'} })
+
+    map.addSource('sql-results', { type:'geojson', data: emptyFC() })
+    map.addLayer({ id:'sql-results', type:'circle', source:'sql-results',
+      paint:{'circle-radius':5,'circle-color':'#43a047','circle-stroke-width':1,'circle-stroke-color':'#000'} })
+  })
+
+  let clicked = null
+  map.on('click', (e) => {
+    clicked = { lon: e.lngLat.lng, lat: e.lngLat.lat }
+    setSource('click-point', { type:'FeatureCollection', features:[{ type:'Feature', geometry:{type:'Point', coordinates:[clicked.lon,clicked.lat]}, properties:{} }]})
+    setStatus(`Point selected: lon=${clicked.lon.toFixed(5)}, lat=${clicked.lat.toFixed(5)}.`)
+  })
+
+  function setSource(id, data){ const s = map.getSource(id); if (s) s.setData(data) }
+  function setStatus(msg){ document.querySelector('#status').textContent = msg }
+
+  // ---- ArcGIS FeatureServer loader ----
+  document.querySelector('#btn-load-arcgis').onclick = async () => {
+    const base = document.querySelector('#arcgis-url').value.trim()
+    const url = base.replace(/\/+$/,'')  // trim trailing slash
+    const layerUrl = /\/\d+$/.test(url) ? url : url + '/0'
+    const q = layerUrl + '/query?where=1%3D1&outFields=*&f=geojson'
+    try {
+      const res = await fetch(q)
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const geo = await res.json()
+      setSource('arcgis-layer', geo)
+      setStatus(`Loaded ArcGIS layer: ${geo?.features?.length || 0} features.`)
+    } catch (e) {
+      setStatus('Failed to load ArcGIS layer: ' + e.message)
+    }
+  }
+  document.querySelector('#btn-clear-arcgis').onclick = () => {
+    setSource('arcgis-layer', emptyFC())
+    setStatus('Cleared ArcGIS layer.')
+  }
+
+  // ---- Supabase SQL Runner ----
+  let sb = null
+  document.querySelector('#btn-connect').onclick = () => {
+    const url = document.querySelector('#sb-url').value.trim()
+    const key = document.querySelector('#sb-key').value.trim()
+    if (!url || !key){ alert('Fill Supabase URL and anon key.'); return }
+    sb = window.supabase.createClient(url, key, { auth: { persistSession: false } })
+    document.querySelector('#conn-status').textContent = 'Connected'
+    document.querySelector('#sql-status').textContent = 'Ready to run SQL.'
+  }
+
+  document.querySelector('#btn-run-sql').onclick = async () => {
+    if (!sb){ alert('Connect Supabase first.'); return }
+    let sql = document.querySelector('#sql').value
+    if (clicked){
+      sql = sql.replaceAll('{{lon}}', clicked.lon).replaceAll('{{lat}}', clicked.lat)
+    } else {
+      document.querySelector('#sql-status').innerHTML = '<span class="danger">Tip: click the map to define {{lon}}, {{lat}}.</span>'
+    }
+    clearTable()
+    setSource('sql-results', emptyFC())
+
+    try {
+      const { data, error } = await sb.rpc('run_student_sql', { sql })
+      if (error) throw error
+      // data is an array of jsonb rows; convert to FC if there's a "geom" field
+      const rows = data || []
+      const features = []
+      const tbody = document.querySelector('#result-table tbody')
+      rows.forEach(row => {
+        // build table row with common columns if present
+        const name = row.name ?? row.title ?? ''
+        const typ = row.type ?? row.category ?? ''
+        const dist = row.dist_m != null ? Number(row.dist_m).toFixed(1) : ''
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${escapeHtml(String(name))}</td><td>${escapeHtml(String(typ))}</td><td>${escapeHtml(String(dist))}</td>`
+        tbody.appendChild(tr)
+
+        // feature
+        if (row.geom && row.geom.type){
+          features.push({ type:'Feature', geometry: row.geom, properties: row })
+        }
+      })
+      if (features.length){
+        setSource('sql-results', { type:'FeatureCollection', features })
+      }
+      document.querySelector('#res-count').textContent = String(rows.length)
+      document.querySelector('#sql-status').innerHTML = `<span class="ok">Query OK.</span> Rows: <b>${rows.length}</b>. Features drawn: <b>${features.length}</b>.`
+      setStatus('SQL executed.')
+    } catch (e) {
+      document.querySelector('#sql-status').innerHTML = '<span class="danger">Error: ' + escapeHtml(e.message) + '</span>'
+    }
+  }
+
+  document.querySelector('#btn-clear-sql').onclick = () => {
+    clearTable()
+    setSource('sql-results', emptyFC())
+    document.querySelector('#sql-status').textContent = 'Cleared.'
+  }
+
+  function clearTable(){
+    document.querySelector('#result-table thead').innerHTML = '<tr><th>Name</th><th>Type</th><th>Dist (m)</th></tr>'
+    const tb = document.querySelector('#result-table tbody')
+    tb.innerHTML = ''
+    document.querySelector('#res-count').textContent = '0'
+  }
+
+  function escapeHtml(s){ return (''+s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
+</script>
+</body>
+</html>
