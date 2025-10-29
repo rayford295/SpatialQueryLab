@@ -1,430 +1,187 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spatial Query Lab – v3</title>
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <meta charset="utf-8" />
+  <title>SQL → GeoJSON → Map (Leaflet + Supabase)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
   <style>
-    html, body { height: 100%; margin: 0; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial; }
-    .container { display: grid; grid-template-columns: 420px 1fr; height: 100%; }
-    .sidebar { padding: 14px; border-right: 1px solid #eee; overflow-y: auto; }
-    h2 { margin: 8px 0 10px; }
-    .card { border: 1px solid #eee; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-    .row { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    label { font-size: 12px; color: #444; }
-    input[type=text], input[type=number], textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
-    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; min-height: 90px; }
-    .btn { padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; cursor: pointer; }
-    .btn:hover { background: #f0f0f0; }
-    .muted { color: #666; font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border-bottom: 1px solid #eee; padding: 6px; text-align: left; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, Arial; }
+    .app { display: grid; grid-template-columns: 420px 1fr; height: 100%; }
+    .side { padding: 12px; border-right: 1px solid #eee; overflow: auto; }
+    .card { border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+    label { font-size: 12px; color: #333; display:block; margin: 6px 0 4px; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 8px; font-family: ui-monospace, Consolas, monospace; }
+    textarea { min-height: 140px; font-size: 12px; }
+    button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ddd; background:#fafafa; cursor:pointer; }
+    button:hover { background:#f0f0f0; }
+    .muted { color:#666; font-size:12px; }
+    .ok { color:#1b5e20; }
+    .err { color:#b00020; }
+    table { width:100%; border-collapse: collapse; font-size:12px; }
+    th,td { border-bottom:1px solid #eee; padding:6px; text-align:left; }
     #map { width: 100%; height: 100%; }
-    .badge { display: inline-block; font-size: 10px; padding: 2px 6px; border: 1px solid #ddd; border-radius: 6px; margin-left: 6px; color: #444; }
-    code { background: #f7f7f7; padding: 2px 4px; border-radius: 4px; }
-    .hint { background: #f8f9fb; border: 1px dashed #d0d7de; padding: 8px; border-radius: 8px; }
   </style>
 </head>
 <body>
-<div class="container">
-  <div class="sidebar">
-    <h2>Spatial Query Lab <span class="badge">v3</span></h2>
-    <p class="muted">Click the map to set a query point. Use Supabase (PostGIS) or local fake data for POIs.</p>
+  <div class="app">
+    <div class="side">
+      <h2>SQL → GeoJSON → Map</h2>
 
-    <div class="card">
-      <h3>1) Data Source</h3>
-      <div class="row">
-        <label>Supabase Project URL
-          <input id="sb-url" type="text" placeholder="https://xxxxx.supabase.co">
-        </label>
-        <label>Supabase anon public key
-          <input id="sb-key" type="text" placeholder="eyJhbGciOiJI...">
-        </label>
-        <div>
-          <button class="btn" id="btn-connect">Connect Supabase</button>
+      <div class="card">
+        <h3>1) Supabase</h3>
+        <label>Project URL</label>
+        <input id="sb-url" placeholder="https://xxxx.supabase.co" value="YOUR_SUPABASE_URL" />
+        <label>anon public key</label>
+        <input id="sb-key" placeholder="eyJhbGciOiJI..." value="YOUR_SUPABASE_ANON_KEY" />
+        <div style="margin-top:8px; display:flex; gap:8px;">
+          <button id="btn-connect">Connect</button>
           <span id="conn-status" class="muted">Not connected</span>
         </div>
-        <div class="muted">If not connected, POI queries fall back to <b>local fake data</b>. Road/building queries require Supabase.</div>
+        <p class="muted" style="margin-top:8px;">
+          后端函数：<code>run_student_sql(sql text)</code>（只读、强制 LIMIT、禁写）。
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>2) SQL Editor</h3>
+        <p class="muted">点击地图设置 <b>{{lon}}</b>/<b>{{lat}}</b>，然后写一个 <b>SELECT/WITH</b> 查询。若结果含列名 <code>geom</code> 且为 GeoJSON 对象，将会绘制。</p>
+<textarea id="sql">
+-- 简单测试：
+select 1 as test;
+
+-- 示例：最近邻 20 个（需要你的表/视图，并确保 geom 是 geometry）
+-- select id, name, type,
+--        st_distance(geom::geography, st_setsrid(st_point({{lon}}, {{lat}}),4326)::geography) as dist_m,
+--        st_asgeojson(geom)::jsonb as geom
+-- from campus_safety
+-- order by geom <-> st_setsrid(st_point({{lon}}, {{lat}}),4326)
+-- limit 20;
+</textarea>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="btn-run">Run SQL</button>
+          <button id="btn-clear">Clear</button>
+        </div>
+        <div id="sql-status" class="muted" style="margin-top:6px;">Ready.</div>
+      </div>
+
+      <div class="card">
+        <h3>3) Results <span id="row-count" class="muted">0</span></h3>
+        <div id="tip" class="muted">点击地图设置查询点。</div>
+        <div style="max-height:240px; overflow:auto; margin-top:8px;">
+          <table id="tbl"><thead><tr><th>Name</th><th>Type</th><th>Dist(m)</th></tr></thead><tbody></tbody></table>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h3>2) Query Type</h3>
-      <div class="row">
-        <label>Pick a spatial query
-          <select id="query-type">
-            <option value="buffer_pois">POIs in Buffer (with optional category)</option>
-            <option value="knn_pois">K-Nearest POIs</option>
-            <option value="roads_buffer">Roads within Distance</option>
-            <option value="nearest_road">Nearest Road to Point</option>
-            <option value="poi_counts">POI Category Counts in Buffer</option>
-          </select>
-        </label>
-
-        <div id="params-buffer-pois">
-          <label>Radius (m)
-            <input id="radius" type="number" value="300" min="50" step="50">
-          </label>
-          <label>Category (optional; e.g., cafe, library)
-            <input id="category" type="text" placeholder="">
-          </label>
-        </div>
-
-        <div id="params-knn" style="display:none;">
-          <label>K (nearest count)
-            <input id="k" type="number" value="10" min="1" step="1">
-          </label>
-        </div>
-
-        <div id="params-roads" style="display:none;">
-          <label>Distance (m)
-            <input id="roads-radius" type="number" value="200" min="50" step="50">
-          </label>
-          <div class="hint muted">Road queries require Supabase (no local roads in the sandbox).</div>
-        </div>
-
-        <div id="params-poi-counts" style="display:none;">
-          <label>Radius (m)
-            <input id="counts-radius" type="number" value="500" min="50" step="50">
-          </label>
-        </div>
-
-        <button class="btn" id="btn-run" disabled>Run Query @ clicked point</button>
-        <div class="muted">Click the map to select a point.</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>3) Local Fake POI Data</h3>
-      <div class="row">
-        <label>How many points?
-          <input id="fake-n" type="number" value="300" min="10" step="10">
-        </label>
-        <button class="btn" id="btn-generate">Generate Fake POIs</button>
-        <button class="btn" id="btn-clear">Clear Fake Data</button>
-        <div class="muted">Random points around TAMU (name/category assigned). Export if needed.</div>
-        <button class="btn" id="btn-export">Export Fake Data (GeoJSON)</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Results <span id="res-count" class="badge">0</span></h3>
-      <div id="status" class="muted">Click on the map to set a query point.</div>
-      <div style="max-height: 230px; overflow: auto; margin-top: 8px;">
-        <table id="result-table">
-          <thead><tr><th>Name</th><th>Category/Type</th><th>Dist (m)</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div id="agg" class="muted" style="margin-top:8px;"></div>
-    </div>
-
-    <div class="card">
-      <h3>SQL Showcase</h3>
-      <p class="muted">Students can practice these RPCs (already prepared in <code>spatial_sql_practice.sql</code>):</p>
-      <ul class="muted">
-        <li><code>pois_in_buffer_geojson(lon, lat, m, category)</code></li>
-        <li><code>k_nearest_pois_geojson(lon, lat, k)</code></li>
-        <li><code>roads_within_distance_geojson(lon, lat, m)</code></li>
-        <li><code>nearest_road_to_point_geojson(lon, lat)</code></li>
-        <li><code>poi_category_counts_within_buffer(lon, lat, m)</code></li>
-      </ul>
-    </div>
+    <div id="map"></div>
   </div>
 
-  <div id="map"></div>
-</div>
+  <!-- libs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script>
-  // --- Map setup ---
-  const INIT = { lng: -96.341, lat: 30.6188, zoom: 14.2 }
-  const map = new maplibregl.Map({
-    container: 'map',
-    style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    center: [INIT.lng, INIT.lat],
-    zoom: INIT.zoom
-  })
-  map.addControl(new maplibregl.NavigationControl(), 'top-right')
+  <script>
+    // --- Leaflet map ---
+    const map = L.map('map').setView([30.6188, -96.341], 14.2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-  map.on('load', () => {
-    addGeoSource('click-point')
-    addCircleLayer('click-point','#222',6)
+    let clicked = null;
+    const clickLayer = L.geoJSON().addTo(map);
+    const resultLayer = L.geoJSON(null, {
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6 })
+    }).addTo(map);
 
-    addGeoSource('poi-results')
-    addCircleLayer('poi-results','#4caf50',5,true)
+    map.on('click', (e) => {
+      clicked = { lon: e.latlng.lng, lat: e.latlng.lat };
+      clickLayer.clearLayers();
+      clickLayer.addData({type:'Feature', geometry:{type:'Point', coordinates:[clicked.lon, clicked.lat]}, properties:{}});
+      document.querySelector('#tip').textContent = `Point: lon=${clicked.lon.toFixed(5)}, lat=${clicked.lat.toFixed(5)}`;
+    });
 
-    addGeoSource('fake-data')
-    addCircleLayer('fake-data','#1976d2',4,true)
+    // --- Supabase client ---
+    let sb = null;
+    document.querySelector('#btn-connect').onclick = () => {
+      const url = document.querySelector('#sb-url').value.trim();
+      const key = document.querySelector('#sb-key').value.trim();
+      if (!url || !key) return alert('Fill URL and anon key');
+      sb = window.supabase.createClient(url, key, { auth: { persistSession: false } });
+      document.querySelector('#conn-status').textContent = 'Connected';
+      document.querySelector('#sql-status').textContent = 'Ready to run SQL.';
+    };
 
-    addGeoSource('line-results')
-    map.addLayer({ id:'line-results', type:'line', source:'line-results',
-      paint: { 'line-width': 3, 'line-color': '#e53935' } })
-  })
+    // --- Helpers ---
+    function esc(s){ return (''+s).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
+    function clearTable(){
+      document.querySelector('#tbl tbody').innerHTML = '';
+      document.querySelector('#row-count').textContent = '0';
+    }
 
-  function addGeoSource(name){ map.addSource(name, { type: 'geojson', data: emptyFC() }) }
-  function addCircleLayer(id,color,radius,stroke=false){
-    const paint = { 'circle-radius': radius, 'circle-color': color }
-    if (stroke){ paint['circle-stroke-width']=1; paint['circle-stroke-color']='#000' }
-    map.addLayer({ id, type:'circle', source:id, paint })
-  }
-  function emptyFC(){ return { type:'FeatureCollection', features: [] } }
-  function setSourceData(id, data){ const s = map.getSource(id); if (s) s.setData(data) }
-
-  // --- State ---
-  let selectedPoint = null
-  let sbClient = null
-  let fakeData = emptyFC()         // local POIs
-  const $ = (sel) => document.querySelector(sel)
-  const $tbody = $('#result-table tbody')
-  const $agg = $('#agg')
-
-  map.on('click', (e) => {
-    selectedPoint = { lng: e.lngLat.lng, lat: e.lngLat.lat }
-    setSourceData('click-point', fcFromPoint([selectedPoint.lng, selectedPoint.lat]))
-    $('#btn-run').disabled = false
-    setStatus('Point selected. Choose a query and click "Run".')
-  })
-
-  function fcFromPoint(coord){
-    return { type:'FeatureCollection', features:[{ type:'Feature', geometry:{type:'Point', coordinates:coord}, properties:{} }] }
-  }
-
-  // --- Data source ---
-  $('#btn-connect').onclick = () => {
-    const url = $('#sb-url').value.trim()
-    const key = $('#sb-key').value.trim()
-    if (!url || !key) { alert('Please fill Supabase URL and anon key'); return }
-    sbClient = window.supabase.createClient(url, key, { auth: { persistSession: false } })
-    $('#conn-status').textContent = 'Connected'
-    setStatus('Connected to Supabase.')
-  }
-
-  // --- Generate local POIs ---
-  $('#btn-generate').onclick = () => {
-    const n = Number($('#fake-n').value || 300)
-    fakeData = randomPointsAround([-96.341, 30.6188], 1800, n)
-    setSourceData('fake-data', fakeData)
-    setStatus(`Generated ${n} fake POIs around TAMU.`)
-  }
-  $('#btn-clear').onclick = () => {
-    fakeData = emptyFC()
-    setSourceData('fake-data', fakeData)
-    setStatus('Cleared fake data.')
-  }
-  $('#btn-export').onclick = () => {
-    if (!fakeData.features.length) { alert('No fake data to export.'); return }
-    const blob = new Blob([JSON.stringify(fakeData, null, 2)], { type: 'application/geo+json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'fake_pois.geojson'
-    a.click()
-  }
-
-  // --- Query type UI logic ---
-  $('#query-type').addEventListener('change', () => {
-    const v = $('#query-type').value
-    $('#params-buffer-pois').style.display = (v==='buffer_pois') ? '' : 'none'
-    $('#params-knn').style.display = (v==='knn_pois') ? '' : 'none'
-    $('#params-roads').style.display = (v==='roads_buffer' || v==='nearest_road') ? '' : 'none'
-    $('#params-poi-counts').style.display = (v==='poi_counts') ? '' : 'none'
-    $agg.innerHTML = ''
-    clearResults()
-  })
-
-  // --- Run query ---
-  $('#btn-run').onclick = async () => {
-    if (!selectedPoint) { alert('Click the map to pick a point.'); return }
-    const qt = $('#query-type').value
-    $agg.innerHTML = ''
-    clearResults()
-
-    try {
-      if (qt === 'buffer_pois') {
-        await runBufferPOIs()
-      } else if (qt === 'knn_pois') {
-        await runKnnPOIs()
-      } else if (qt === 'roads_buffer') {
-        await runRoadsWithin()
-      } else if (qt === 'nearest_road') {
-        await runNearestRoad()
-      } else if (qt === 'poi_counts') {
-        await runPOICounts()
+    // --- Run SQL ---
+    document.querySelector('#btn-run').onclick = async () => {
+      if (!sb) return alert('Connect Supabase first.');
+      let sql = document.querySelector('#sql').value;
+      if (clicked){
+        sql = sql.replaceAll('{{lon}}', clicked.lon).replaceAll('{{lat}}', clicked.lat);
+      } else {
+        document.querySelector('#sql-status').innerHTML = '<span class="muted">Tip: 点击地图可用 {{lon}}/{{lat}}</span>';
       }
-    } catch (e) {
-      console.error(e)
-      setStatus('Error: ' + e.message)
-    }
-  }
 
-  async function runBufferPOIs(){
-    const r = Number($('#radius').value || 300)
-    const cat = ($('#category').value || '').trim()
-    if (sbClient) {
-      setStatus('RPC: pois_in_buffer_geojson ...')
-      const { data, error } = await sbClient.rpc('pois_in_buffer_geojson', {
-        lon: selectedPoint.lng, lat: selectedPoint.lat, m: r, category: (cat || null)
-      })
-      if (error) throw error
-      const fc = toFC(data, 'poi')
-      setSourceData('poi-results', fc)
-      fillTable(fc.features, 'poi')
-      setStatus(`Fetched ${fc.features.length} POIs (Supabase) within ${r} m.`)
-    } else {
-      // local mode
-      if (!fakeData.features.length) { setStatus('No fake data. Click "Generate Fake POIs" first.'); return }
-      const center = turf.point([selectedPoint.lng, selectedPoint.lat])
-      const feats = fakeData.features
-        .map(f => ({ f, d: turf.distance(center, turf.point(f.geometry.coordinates), { units: 'meters' }) }))
-        .filter(o => o.d <= r)
-        .map(o => { const g = clone(o.f); g.properties = {...g.properties, dist_m:o.d}; return g })
-      const filtered = cat ? feats.filter(g => (g.properties?.category === cat)) : feats
-      filtered.sort((a,b)=>(a.properties.dist_m)-(b.properties.dist_m))
-      const fc = { type:'FeatureCollection', features: filtered.slice(0,500) }
-      setSourceData('poi-results', fc)
-      fillTable(fc.features, 'poi')
-      setStatus(`Fetched ${fc.features.length} POIs (local) within ${r} m.`)
-    }
-  }
+      // 清空可视化
+      resultLayer.clearLayers();
+      clearTable();
 
-  async function runKnnPOIs(){
-    const k = Number($('#k').value || 10)
-    if (sbClient) {
-      setStatus('RPC: k_nearest_pois_geojson ...')
-      const { data, error } = await sbClient.rpc('k_nearest_pois_geojson', {
-        lon: selectedPoint.lng, lat: selectedPoint.lat, k
-      })
-      if (error) throw error
-      const fc = toFC(data, 'poi')
-      setSourceData('poi-results', fc)
-      fillTable(fc.features, 'poi')
-      setStatus(`Fetched ${fc.features.length} POIs (Supabase) by KNN.`)
-    } else {
-      if (!fakeData.features.length) { setStatus('No fake data. Click "Generate Fake POIs" first.'); return }
-      const center = turf.point([selectedPoint.lng, selectedPoint.lat])
-      const feats = fakeData.features
-        .map(f => ({ f, d: turf.distance(center, turf.point(f.geometry.coordinates), { units: 'meters' }) }))
-        .sort((a,b)=>a.d-b.d)
-        .slice(0,k)
-        .map(o => { const g = clone(o.f); g.properties = {...g.properties, dist_m:o.d}; return g })
-      const fc = { type:'FeatureCollection', features: feats }
-      setSourceData('poi-results', fc)
-      fillTable(fc.features, 'poi')
-      setStatus(`Fetched ${fc.features.length} POIs (local) by KNN.`)
-    }
-  }
+      try {
+        const { data, error } = await sb.rpc('run_student_sql', { sql });
+        if (error) throw error;
 
-  async function runRoadsWithin(){
-    const r = Number($('#roads-radius').value || 200)
-    if (!sbClient) { setStatus('Road queries require Supabase.'); return }
-    setStatus('RPC: roads_within_distance_geojson ...')
-    const { data, error } = await sbClient.rpc('roads_within_distance_geojson', {
-      lon: selectedPoint.lng, lat: selectedPoint.lat, m: r
-    })
-    if (error) throw error
-    const fc = toFC(data, 'road')
-    setSourceData('line-results', fc)
-    fillTable(fc.features, 'road')
-    setStatus(`Fetched ${fc.features.length} roads within ${r} m.`)
-  }
+        const rows = data || [];
+        const features = [];
 
-  async function runNearestRoad(){
-    if (!sbClient) { setStatus('Road queries require Supabase.'); return }
-    setStatus('RPC: nearest_road_to_point_geojson ...')
-    const { data, error } = await sbClient.rpc('nearest_road_to_point_geojson', {
-      lon: selectedPoint.lng, lat: selectedPoint.lat
-    })
-    if (error) throw error
-    const fc = toFC(data, 'road')
-    setSourceData('line-results', fc)
-    fillTable(fc.features, 'road')
-    setStatus(`Fetched nearest road.`)
-  }
+        // 填表 + 收集 GeoJSON
+        const tbody = document.querySelector('#tbl tbody');
+        rows.forEach(row => {
+          const name = row.name ?? row.title ?? '';
+          const typ  = row.type ?? row.category ?? '';
+          const dist = row.dist_m != null ? Number(row.dist_m).toFixed(1) : '';
 
-  async function runPOICounts(){
-    const r = Number($('#counts-radius').value || 500)
-    if (!sbClient) {
-      setStatus('Counts require Supabase (aggregation).')
-      return
-    }
-    setStatus('RPC: poi_category_counts_within_buffer ...')
-    const { data, error } = await sbClient.rpc('poi_category_counts_within_buffer', {
-      lon: selectedPoint.lng, lat: selectedPoint.lat, m: r
-    })
-    if (error) throw error
-    // Render a small HTML table for counts
-    $tbody.innerHTML = ''
-    $('#res-count').textContent = '0'
-    setSourceData('poi-results', emptyFC())
-    setSourceData('line-results', emptyFC())
-    const rows = (data || []).map(d => `<tr><td>${escapeHtml(d.category ?? '-')}</td><td>${escapeHtml(String(d.cnt))}</td><td></td></tr>`).join('')
-    $('#result-table thead').innerHTML = '<tr><th>Category</th><th>Count</th><th></th></tr>'
-    $tbody.innerHTML = rows || '<tr><td colspan="3" class="muted">No data</td></tr>'
-    $agg.innerHTML = `Radius: <b>${r} m</b> — categories: <b>${(data||[]).length}</b>`
-    setStatus(`Aggregated ${ (data||[]).reduce((s,d)=>s+Number(d.cnt||0),0) } POIs in ${r} m.`)
-  }
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${esc(name)}</td><td>${esc(typ)}</td><td>${esc(dist)}</td>`;
+          tbody.appendChild(tr);
 
-  function toFC(rows, kind){
-    const feats = (rows || []).map(r => ({
-      type:'Feature',
-      geometry: r.geom,
-      properties: kind==='poi'
-        ? { id:r.id, name:r.name, category:r.category, dist_m:r.dist_m }
-        : { id:r.id, name:r.name, type:r.type, dist_m:r.dist_m }
-    }))
-    return { type:'FeatureCollection', features: feats }
-  }
+          // 兼容 geom 为对象或字符串的情况
+          let g = row.geom;
+          if (typeof g === 'string') {
+            try { g = JSON.parse(g) } catch(_) {}
+          }
+          if (g && g.type) {
+            features.push({ type:'Feature', geometry:g, properties: row });
+          }
+        });
 
-  function fillTable(features, kind){
-    // Reset header
-    if (kind==='road'){
-      $('#result-table thead').innerHTML = '<tr><th>Name</th><th>Type</th><th>Dist (m)</th></tr>'
-    } else {
-      $('#result-table thead').innerHTML = '<tr><th>Name</th><th>Category/Type</th><th>Dist (m)</th></tr>'
-    }
-    $tbody.innerHTML = ''
-    features.forEach((g,i) => {
-      const name = g.properties?.name ?? '-'
-      const col2 = (kind==='road') ? (g.properties?.type ?? '-') : (g.properties?.category ?? '-')
-      const dist = g.properties?.dist_m != null ? Number(g.properties.dist_m).toFixed(1) : ''
-      const tr = document.createElement('tr')
-      tr.innerHTML = `<td>${escapeHtml(name)}</td><td>${escapeHtml(col2)}</td><td>${dist}</td>`
-      $tbody.appendChild(tr)
-    })
-    $('#res-count').textContent = String(features.length)
-  }
+        if (features.length){
+          resultLayer.addData({ type:'FeatureCollection', features });
+          try { map.fitBounds(resultLayer.getBounds(), { padding:[20,20] }) } catch(_){}
+        }
 
-  function clearResults(){
-    setSourceData('poi-results', emptyFC())
-    setSourceData('line-results', emptyFC())
-    $tbody.innerHTML = ''
-    $('#res-count').textContent = '0'
-  }
+        document.querySelector('#row-count').textContent = rows.length;
+        document.querySelector('#sql-status').innerHTML =
+          `<span class="ok">Query OK.</span> Rows: <b>${rows.length}</b>, Features: <b>${features.length}</b>.`;
+      } catch (e) {
+        document.querySelector('#sql-status').innerHTML = `<span class="err">Error: ${esc(e.message || e)}</span>`;
+      }
+    };
 
-  function randomPointsAround(centerLngLat, radiusMeters, n){
-    const cats = ['cafe','library','bus_stop','restaurant','clinic','bakery','gym','poi']
-    const fc = emptyFC()
-    for (let i=0;i<n;i++){
-      const bearing = Math.random()*360
-      const dist = Math.random()*radiusMeters
-      const pt = turf.destination(turf.point(centerLngLat), dist, bearing, { units:'meters' })
-      const name = `POI_${(i+1).toString().padStart(3,'0')}`
-      const category = cats[Math.floor(Math.random()*cats.length)]
-      fc.features.push({
-        type:'Feature',
-        geometry: pt.geometry,
-        properties: { name, category }
-      })
-    }
-    return fc
-  }
-
-  function clone(o){ return JSON.parse(JSON.stringify(o)) }
-  function setStatus(msg){ document.querySelector('#status').textContent = msg }
-  function escapeHtml(s){ return (''+s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
-</script>
+    document.querySelector('#btn-clear').onclick = () => {
+      resultLayer.clearLayers();
+      clearTable();
+      document.querySelector('#sql-status').textContent = 'Cleared.';
+    };
+  </script>
 </body>
 </html>
