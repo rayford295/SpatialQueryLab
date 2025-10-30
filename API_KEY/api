@@ -1,1 +1,9 @@
+Project URL
+https://hypqkovnppcwvhmxxmtm.supabase.co
+A RESTful endpoint for querying and managing your database.
 
+API Key
+anon
+public
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5cHFrb3ZucHBjd3ZobXh4bXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NDEzMjAsImV4cCI6MjA3NzMxNzMyMH0.6kioJKVL6G9AE42LGUPISextaJaLni_c2s5BfwpmFZE
+This key is safe to use in a browser if you have enabled Row Level Security (RLS) for your tables and configured policies. You may also use the service key which can be found here to bypass RLS.
