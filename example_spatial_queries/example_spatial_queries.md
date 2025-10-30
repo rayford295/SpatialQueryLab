@@ -1,3 +1,5 @@
+---
+
 ````markdown
 # 🧠 Example Spatial SQL Queries for Spatial Query Lab
 
@@ -237,30 +239,8 @@ Encourage students to:
 * Experiment with **ST_Union**, **ST_Area**, and **ST_Length**.
 * Combine **attribute + spatial filters** for richer analysis.
 * Compare **query performance** using spatial indexes.
-
 ````
 
 ---
 
-### 🧩 Step 2: Link it from your main `README.md`
-In your main README (after the “Educational Use” section), add this:
-
-```markdown
----
-
-## 🧠 Example SQL Queries
-
-Explore practical, ready-to-run examples here:  
-👉 [Example Spatial SQL Queries](example_spatial_queries.md)
-
-These queries illustrate:
-- Buffering and distance operations  
-- Spatial joins and intersections  
-- Aggregation, filtering, and visualization techniques  
-- Interactive click-to-query workflows
-````
-
----
-
-Would you like me to reformat the query file with collapsible `<details>` sections (like an interactive GitHub tutorial style)? That version looks great for teaching repositories — each query can expand/collapse for students.
 
