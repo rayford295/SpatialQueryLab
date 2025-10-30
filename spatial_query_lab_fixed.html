@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spatial Query Lab — Fixed</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #f7f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --text: #111827;
+      --accent: #2563eb;
+      --accent-2: #1f2937;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+      padding: 16px;
+      height: 100vh;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      height: 100%;
+      overflow: auto;
+    }
+    .section {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 8px 0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    h2 { font-size: 15px; margin: 0 0 8px 0; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input, textarea, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      font-size: 13px;
+      background: #fff;
+    }
+    textarea { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .row { display: flex; gap: 8px; }
+    .btn {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn.secondary { background: #fff; color: var(--accent-2); }
+    .small { font-size: 12px; color: var(--muted); }
+    #map {
+      height: 100%;
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { text-align: left; color: var(--muted); font-weight: 600; }
+    .status { font-size: 12px; }
+    .ok { color: #047857; }
+    .err { color: #b91c1c; }
+    .chip { display:inline-block; padding:2px 6px; border-radius:8px; background:#eef2ff; color:#3730a3; font-size:11px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f3f4f6; padding:0 6px; border-radius:6px; border:1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Panel -->
+    <div class="panel">
+      <h1>Spatial Query Lab <span class="chip">v3-fixed</span></h1>
+
+      <!-- 1) Supabase connector -->
+      <div class="section">
+        <h2>1) Supabase (SQL Runner)</h2>
+        <label>Supabase Project URL</label>
+        <input id="project_url" placeholder="https://xxxxx.supabase.co" />
+
+        <label style="margin-top:8px">Supabase anon public key</label>
+        <input id="anon_key" placeholder="eyJhbGciOiJI..." />
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" onclick="connectSupabase()">Connect Supabase</button>
+          <div id="connect_status" class="status" style="padding-top:10px;margin-left:8px;">Not connected</div>
+        </div>
+        <div class="small" style="margin-top:8px">Backend expects Postgres function <span class="kbd">run_open_sql(sql_text)</span> to execute arbitrary SQL.</div>
+      </div>
+
+      <!-- 2) SQL Editor -->
+      <div class="section">
+        <h2>2) SQL Editor</h2>
+        <div class="small" style="margin-bottom:8px">
+          Click the map to set variables <span class="kbd">{{lon}}</span>, <span class="kbd">{{lat}}</span>, <span class="kbd">{{dist_m}}</span> (default 200).
+        </div>
+        <textarea id="sql_text">
+-- Try a simple spatial query (edit me)
+select id, name, type,
+       st_asgeojson(geom)::jsonb as geom
+from campus_safety
+limit 10;
+        </textarea>
+
+        <div class="row" style="margin-top:8px">
+          <button class="btn" onclick="runSQL()">Run SQL</button>
+          <button class="btn secondary" onclick="clearResults()">Clear Results</button>
+        </div>
+        <div id="last_click" class="small" style="margin-top:6px">Ready. No map click yet.</div>
+        <div id="sql_error" class="small err" style="margin-top:6px; display:none;"></div>
+      </div>
+
+      <!-- 3) Results -->
+      <div class="section">
+        <h2>3) Results</h2>
+        <table id="results_table">
+          <thead id="results_head"></thead>
+          <tbody id="results_body"></tbody>
+        </table>
+        <div id="rows_count" class="small" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Map -->
+    <div class="panel" style="padding:8px;">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    // ---- Map init (FIX: use raster tiles instead of GL style JSON) ----
+    const map = L.map('map', { zoomControl: true }).setView([30.615, -96.34], 16);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 20
+    }).addTo(map);
+
+    let clickMarker = null;
+    let geoLayer = L.geoJSON(null).addTo(map);
+    let currentClick = { lon: null, lat: null, dist_m: 200 };
+
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      currentClick.lat = +lat.toFixed(6);
+      currentClick.lon = +lng.toFixed(6);
+      if (clickMarker) map.removeLayer(clickMarker);
+      clickMarker = L.marker([lat, lng]).addTo(map);
+      document.getElementById('last_click').textContent =
+        `Click set → lat=${currentClick.lat}, lon=${currentClick.lon}, dist=${currentClick.dist_m}m`;
+    });
+
+    // ---- Supabase ----
+    const { createClient } = supabase;
+    let sb = null;
+
+    async function connectSupabase() {
+      setError('');
+      const url = document.getElementById('project_url').value.trim();
+      const key = document.getElementById('anon_key').value.trim();
+
+      if (!url || !key) {
+        setStatus('Please enter project URL and anon key.', false);
+        return;
+      }
+      try {
+        sb = createClient(url, key);
+        // Simple smoke test
+        const { error } = await sb.rpc('run_open_sql', { sql_text: 'select 1' });
+        if (error) throw error;
+        setStatus('Connected ✅', true);
+      } catch (err) {
+        setStatus('Connection failed', false);
+        setError(err.message || String(err));
+      }
+    }
+
+    function setStatus(msg, ok) {
+      const el = document.getElementById('connect_status');
+      el.textContent = msg;
+      el.className = 'status ' + (ok ? 'ok' : 'err');
+    }
+    function setError(msg) {
+      const el = document.getElementById('sql_error');
+      if (!msg) { el.style.display = 'none'; el.textContent=''; return; }
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    function applyTemplateVars(sqlRaw) {
+      let sql = sqlRaw;
+      const hasLatLon = currentClick.lat !== null && currentClick.lon !== null;
+      sql = sql.replaceAll('{{dist_m}}', String(currentClick.dist_m));
+      if (hasLatLon) {
+        sql = sql.replaceAll('{{lat}}', String(currentClick.lat));
+        sql = sql.replaceAll('{{lon}}', String(currentClick.lon));
+      }
+      return sql;
+    }
+
+    function clearResults() {
+      document.getElementById('results_head').innerHTML = '';
+      document.getElementById('results_body').innerHTML = '';
+      document.getElementById('rows_count').textContent = '';
+      geoLayer.clearLayers();
+      setError('');
+    }
+
+    function renderTable(rows) {
+      if (!rows || !rows.length) { clearResults(); return; }
+      const keys = Object.keys(rows[0]);
+      const thead = '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+      const tbody = rows.map(r => {
+        return '<tr>' + keys.map(k => `<td>${escapeHtml(formatCell(r[k]))}</td>`).join('') + '</tr>';
+      }).join('');
+      document.getElementById('results_head').innerHTML = thead;
+      document.getElementById('results_body').innerHTML = tbody;
+      document.getElementById('rows_count').textContent = rows.length + ' row(s)';
+    }
+
+    function formatCell(v) {
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'object') {
+        try { return JSON.stringify(v); } catch { return String(v); }
+      }
+      return String(v);
+    }
+
+    function escapeHtml(s) {
+      return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    }
+
+    function collectGeoJSON(rows) {
+      const features = [];
+      for (const r of rows) {
+        // Accept common field names: geom / geojson / geometry
+        const cand = r.geom ?? r.geojson ?? r.geometry ?? null;
+        if (!cand) continue;
+        try {
+          const g = (typeof cand === 'string') ? JSON.parse(cand) : cand;
+          // If it's already a Feature/FeatureCollection/Geometry
+          if (g && (g.type === 'Feature' || g.type === 'FeatureCollection' || g.type === 'Point' || g.type === 'LineString' || g.type === 'Polygon' || g.type?.endsWith('Collection'))) {
+            if (g.type === 'FeatureCollection') {
+              for (const f of g.features) features.push(f);
+            } else if (g.type === 'Feature') {
+              features.push(g);
+            } else {
+              features.push({ type: 'Feature', properties: {}, geometry: g });
+            }
+          }
+        } catch (e) {
+          // ignore parse errors for non-geo rows
+        }
+      }
+      if (!features.length) return null;
+      return { type: 'FeatureCollection', features };
+    }
+
+    async function runSQL() {
+      setError('');
+      if (!sb) { setStatus('Not connected', false); return; }
+
+      let sqlRaw = document.getElementById('sql_text').value;
+      const sql = applyTemplateVars(sqlRaw);
+
+      try {
+        const { data, error } = await sb.rpc('run_open_sql', { sql_text: sql });
+        if (error) throw error;
+        renderTable(data);
+        // Map rendering if there is geo
+        geoLayer.clearLayers();
+        const fc = collectGeoJSON(data);
+        if (fc) {
+          const layer = L.geoJSON(fc, {
+            onEachFeature: (feat, lyr) => {
+              const props = Object.assign({}, feat.properties);
+              lyr.bindPopup('<pre style="margin:0; font-size:12px;">' + escapeHtml(JSON.stringify(props, null, 2)) + '</pre>');
+            }
+          });
+          geoLayer.addLayer(layer);
+          try { map.fitBounds(layer.getBounds(), { padding: [16,16] }); } catch {}
+        }
+      } catch (err) {
+        setError(err.message || String(err));
+      }
+    }
+  </script>
+</body>
+</html>
