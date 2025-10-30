@@ -1,17 +1,3 @@
-Perfect — these example SQL queries are a great teaching addition for your **Spatial Query Lab** repository.
-Here’s a clean, professional way to integrate them:
-
----
-
-### 🧭 Option 1: Add a separate file
-
-Create a new file called:
-📄 **`example_spatial_queries.md`**
-
-with this full content:
-
----
-
 ````markdown
 # 🧠 Example Spatial SQL Queries for Spatial Query Lab
 
