@@ -1,3 +1,14 @@
+
+
+---
+
+### 🧭 Option 1: Add a separate file
+
+Create a new file called:
+📄 **`example_spatial_queries.md`**
+
+with this full content:
+
 ---
 
 ````markdown
@@ -239,8 +250,9 @@ Encourage students to:
 * Experiment with **ST_Union**, **ST_Area**, and **ST_Length**.
 * Combine **attribute + spatial filters** for richer analysis.
 * Compare **query performance** using spatial indexes.
-````
+
 
 ---
 
+Would you like me to reformat the query file with collapsible `<details>` sections (like an interactive GitHub tutorial style)? That version looks great for teaching repositories — each query can expand/collapse for students.
 
