@@ -44,6 +44,21 @@ Developed for Texas A&M University students to explore geospatial databases, run
 
 ---
 
+🧠 Example Spatial SQL Queries
+
+A complete list of ready-to-run example queries is available here:
+👉 Example Spatial Queries
+
+These examples demonstrate:
+
+Buffering, distance, and intersection operations
+
+Spatial joins between datasets
+
+Aggregation and heatmap preparation
+
+Interactive “click-to-query” workflows
+
 ## 🧰 Tech Stack
 
 * **Frontend:** HTML, JavaScript, Leaflet.js
