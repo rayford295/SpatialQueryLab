@@ -1,7 +1,3 @@
-Here’s a **shorter, polished English README.md** — concise enough for GitHub but still professional and informative for students or collaborators 👇
-
----
-
 ````markdown
 # 🌍 Spatial Query Lab
 
@@ -17,7 +13,6 @@ Developed for Texas A&M University students to explore geospatial databases, run
 - Write and execute **SQL and spatial SQL** queries.
 - Visualize query outputs (points, polygons, lines) instantly on a map.
 
-It’s ideal for courses like **GEOG 478 – Web GIS** and **GEOG 651 – Geodatabase**.
 
 ---
 
