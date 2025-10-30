@@ -254,5 +254,3 @@ Encourage students to:
 
 ---
 
-Would you like me to reformat the query file with collapsible `<details>` sections (like an interactive GitHub tutorial style)? That version looks great for teaching repositories — each query can expand/collapse for students.
-
