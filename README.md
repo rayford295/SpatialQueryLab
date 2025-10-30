@@ -2,7 +2,7 @@
 
 An interactive **spatial SQL learning environment** using **Supabase (PostGIS)** and **Leaflet.js**.  
 Developed for Texas A&M University students to explore geospatial databases, run spatial queries, and visualize results on a live map.
-
+![Example Spatial Query Lab](https://github.com/rayford295/SpatialQueryLab/blob/main/Example_Spatial%20Quert%20Lab.PNG)
 ---
 
 ## 🚀 Overview
