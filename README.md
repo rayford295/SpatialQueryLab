@@ -1,4 +1,3 @@
-````markdown
 # 🌍 Spatial Query Lab
 
 An interactive **spatial SQL learning environment** using **Supabase (PostGIS)** and **Leaflet.js**.  
@@ -44,28 +43,6 @@ Developed for Texas A&M University students to explore geospatial databases, run
 
 ---
 
-## 🧪 Example Queries
-
-```sql
--- View all safety points
-select id, name, type,
-       st_asgeojson(geom)::jsonb as geom
-from campus_safety
-limit 10;
-
--- Find features within 200 m of a clicked point
-select id, name, type,
-       st_asgeojson(geom)::jsonb as geom
-from campus_safety
-where st_dwithin(
-  geom::geography,
-  st_setsrid(st_point({{lon}}, {{lat}}),4326)::geography,
-  {{dist_m}}
-);
-````
-
----
-
 ## 🧰 Tech Stack
 
 * **Frontend:** HTML, JavaScript, Leaflet.js
@@ -92,7 +69,3 @@ Department of Geography, Texas A&M University
 [https://www.geoearlab.com](https://www.geoearlab.com)
 
 
----
-
-Would you like me to make a **version formatted for GitHub Pages landing (with image preview and “Open App” button)** next? It would make your repo page double as an interactive showcase.
-```
