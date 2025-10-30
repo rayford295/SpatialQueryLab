@@ -44,20 +44,21 @@ Developed for Texas A&M University students to explore geospatial databases, run
 
 ---
 
-🧠 Example Spatial SQL Queries
+## 🧠 Example Spatial SQL Queries
 
-A complete list of ready-to-run example queries is available here:
-👉 Example Spatial Queries
+A complete collection of **ready-to-run example queries** is provided here:  
+👉 [**View Example Spatial Queries**](example_spatial_queries/example_spatial_queries.md)
 
-These examples demonstrate:
+These examples demonstrate core **PostGIS operations** used in the Spatial Query Lab:
 
-Buffering, distance, and intersection operations
+- 🟢 **Buffering, Distance, and Proximity Analysis** — using `ST_Buffer`, `ST_DWithin`, and `ST_Distance`
+- 🟣 **Spatial Joins and Intersections** — applying `ST_Intersects` and `ST_Intersection`
+- 🟡 **Aggregation and Heatmap Preparation** — counting features per polygon and generating summary layers
+- 🔵 **Interactive “Click-to-Query” Workflows** — dynamically inserting coordinates (`{{lat}}`, `{{lon}}`, `{{dist_m}}`) for user-driven queries
+- 🟠 **Multi-layer Visualization** — combining outputs from multiple tables into a unified GeoJSON layer
 
-Spatial joins between datasets
+Each query is annotated with its **purpose**, **PostGIS function**, and **expected visualization outcome** for teaching and exploration.
 
-Aggregation and heatmap preparation
-
-Interactive “click-to-query” workflows
 
 ## 🧰 Tech Stack
 
