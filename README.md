@@ -1,134 +1,92 @@
-Perfect — here’s a polished and professional **GitHub README.md** (in English) you can paste directly:
+Here’s a **shorter, polished English README.md** — concise enough for GitHub but still professional and informative for students or collaborators 👇
 
 ---
 
 ````markdown
-# 🌍 SpatialQueryLab
+# 🌍 Spatial Query Lab
 
-An **interactive geospatial database and SQL learning environment** for Texas A&M University (TAMU) students.  
-The lab integrates **ArcGIS FeatureServer** and **Supabase/PostGIS** to teach spatial database concepts, spatial SQL, and real-time geodata visualization.
+An interactive **spatial SQL learning environment** using **Supabase (PostGIS)** and **Leaflet.js**.  
+Developed for Texas A&M University students to explore geospatial databases, run spatial queries, and visualize results on a live map.
 
 ---
 
 ## 🚀 Overview
 
-**SpatialQueryLab** is designed as a hands-on learning tool for geospatial courses (e.g., *GEOG 478 Web GIS, Geodatabase, or Spatial Analysis*).  
-It allows students to:
-- Load **real-world geospatial data** from ArcGIS FeatureServer (e.g., TAMU Campus Safety dataset).  
-- Connect to a **Supabase/PostGIS** backend to execute spatial SQL queries.  
-- Instantly **visualize query results** (points, buffers, and nearest features) on an interactive web map.  
+**Spatial Query Lab** lets students:
+- Connect to a **Supabase/PostGIS** backend.
+- Write and execute **SQL and spatial SQL** queries.
+- Visualize query outputs (points, polygons, lines) instantly on a map.
+
+It’s ideal for courses like **GEOG 478 – Web GIS** and **GEOG 651 – Geodatabase**.
 
 ---
 
-## 🗺️ Features
+## 🧭 Main Features
 
 | Feature | Description |
 |----------|-------------|
-| 🧭 **ArcGIS FeatureServer Loader** | Load live geospatial datasets directly via ArcGIS REST API (`/FeatureServer/query?f=geojson`). |
-| 🧮 **SQL Runner (Supabase/PostGIS)** | Execute spatial SQL queries through Supabase RPC and display results on the map. |
-| 🧑‍🎓 **Student-Friendly Sandbox** | Safe SQL environment with a read-only function `run_student_sql()` to prevent destructive queries. |
-| 🌐 **Interactive Map Visualization** | Powered by **MapLibre GL JS** for dynamic spatial visualization. |
-| 📦 **Local or Cloud Mode** | Works with both remote (Supabase) and local datasets for offline teaching. |
+| 🗃️ **PostGIS Dataset** | Preloaded TAMU campus data (safety, buildings, roads, greens). |
+| 💬 **SQL Runner (RPC)** | Executes queries via `run_open_sql(sql_text)` using Supabase. |
+| 🗺️ **Interactive Map** | Leaflet-based visualization of GeoJSON results. |
+| 📍 **Map Integration** | Click to inject `{{lat}}`, `{{lon}}`, `{{dist_m}}` into SQL. |
+| 🧑‍🎓 **Teaching Sandbox** | Safe, resettable environment for classroom labs. |
 
 ---
 
-## ⚙️ How It Works
+## ⚙️ Quick Setup
 
-1. **Load Real Data (ArcGIS Mode)**  
-   - The interface automatically fetches and displays GeoJSON from ArcGIS REST services.  
-   - Example dataset:  
-     [TAMU Campus Safety Map](https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/Campus_Safety_Layer/FeatureServer/0)
+1. **Create a Supabase Project**
+   - Enable the **PostGIS** extension.
+   - In SQL Editor, run the setup script [`setup_open.sql`](setup_open.sql).
+   - This creates:
+     - `campus_safety`, `campus_buildings`, `green_spaces`, `roads`
+     - RPC: `run_open_sql(sql_text)`
 
-2. **Connect to Supabase (SQL Mode)**  
-   - Create a free Supabase project with **PostGIS enabled**.  
-   - Run the setup script [`spatial_sql_sqlrunner.sql`](spatial_sql_sqlrunner.sql) to define a safe RPC function:
-     ```sql
-     select * from run_student_sql('
-       select id, name, type,
-              st_distance(geom::geography, st_setsrid(st_point(-96.34, 30.62),4326)::geography) as dist_m,
-              st_asgeojson(geom)::jsonb as geom
-       from campus_safety
-       order by geom <-> st_setsrid(st_point(-96.34, 30.62),4326)
-       limit 20;
-     ');
-     ```
-   - Click a point on the map to set `{{lon}}` and `{{lat}}` and visualize the results.
-
-3. **Write & Run SQL**  
-   Students can explore:
-   - `ST_DWithin()` — find features within a radius.  
-   - `ST_Distance()` — measure proximity.  
-   - `ST_Intersects()` — test spatial relationships.  
-   - `GROUP BY type` — aggregate by feature type.
+2. **Run Locally**
+   - Open `spatial_query_lab_fixed.html` in your browser.
+   - Enter your **Supabase project URL** and **anon key**.
+   - Write SQL → click **Run SQL** → view results on the map.
 
 ---
 
-## 📚 Example Classroom Exercises
+## 🧪 Example Queries
 
-| Exercise | Goal |
-|-----------|------|
-| **1. Nearest Safety Facility** | Find the nearest 10 emergency call boxes to any clicked location. |
-| **2. Hotspot Analysis** | Count the number of safety features within 500 meters. |
-| **3. Spatial Aggregation** | Summarize facilities by category (e.g., cameras vs. call boxes). |
-| **4. Distance Comparison** | Compare spatial density between two parts of campus. |
+```sql
+-- View all safety points
+select id, name, type,
+       st_asgeojson(geom)::jsonb as geom
+from campus_safety
+limit 10;
+
+-- Find features within 200 m of a clicked point
+select id, name, type,
+       st_asgeojson(geom)::jsonb as geom
+from campus_safety
+where st_dwithin(
+  geom::geography,
+  st_setsrid(st_point({{lon}}, {{lat}}),4326)::geography,
+  {{dist_m}}
+);
+````
 
 ---
 
 ## 🧰 Tech Stack
 
-- **Frontend:** HTML5 + JavaScript + MapLibre GL JS  
-- **Backend:** Supabase (PostgreSQL + PostGIS)  
-- **Data Integration:** ArcGIS REST API / FeatureServer  
-- **Libraries:** Turf.js, Supabase.js, ESRI GeoJSON  
+* **Frontend:** HTML, JavaScript, Leaflet.js
+* **Backend:** Supabase (PostgreSQL + PostGIS)
+* **RPC:** `run_open_sql(sql_text)` (PL/pgSQL)
+* **Data:** TAMU campus spatial dataset
 
 ---
 
-## 🧪 Setup & Deployment
+## 🧩 Educational Use
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/rayford295/SpatialQueryLab.git
-   cd SpatialQueryLab
-````
+Perfect for:
 
-2. **Run Locally**
-
-   * Open `spatial_lab_sandbox_v4.html` in your browser.
-   * Or deploy via GitHub Pages (recommended for teaching):
-
-     ```bash
-     git add .
-     git commit -m "Deploy SpatialQueryLab"
-     git push
-     ```
-
-     Then enable Pages → "Deploy from `main` branch" → select `/ (root)`.
-
-3. **Optional:** Set up Supabase SQL Runner
-
-   * Open your Supabase SQL Editor.
-   * Copy-paste and run [`spatial_sql_sqlrunner.sql`](spatial_sql_sqlrunner.sql).
-   * Connect using your project URL and public anon key.
-
----
-
-## 🧑‍🏫 Educational Use Case
-
-This project is ideal for:
-
-* Teaching **Geodatabase** or **Web GIS** concepts.
-* Demonstrating **spatial SQL queries** interactively.
-* Conducting **campus safety mapping** or **urban analysis** labs.
-* Encouraging open-source, reproducible spatial education.
-
----
-
-## 🧩 Future Extensions
-
-* Polygon AOI drawing & querying (`ST_Intersects`, `ST_Contains`)
-* Real-time analytics (e.g., heatmaps)
-* Integration with open data APIs (OpenStreetMap, SafeGraph, etc.)
-* Student submission & grading dashboard
+* Teaching **spatial SQL** and **PostGIS basics**
+* Exploring **geodatabase design** and **spatial analysis**
+* Hands-on **query visualization labs** in web GIS
 
 ---
 
@@ -138,17 +96,8 @@ MIT License © 2025 Yifan Yang
 Department of Geography, Texas A&M University
 [https://www.geoearlab.com](https://www.geoearlab.com)
 
----
-
-### ⭐ Acknowledgments
-
-This project was developed as part of **GEOG 478 / GEOG 651** coursework and research in the **GEAR Lab (Geospatial Exploration and Resolution Lab)**, advised by **Dr. Lei Zou**.
 
 ---
 
-```
-
----
-
-Would you like me to also generate a **shorter version for the GitHub Pages landing (index.html README section)** — so your repository doubles as an interactive webpage (with embedded screenshots and links)?
+Would you like me to make a **version formatted for GitHub Pages landing (with image preview and “Open App” button)** next? It would make your repo page double as an interactive showcase.
 ```
